@@ -6,6 +6,7 @@ charset-normalizer==3.4.7
 click==8.4.2
 colorama==0.4.6
 contourpy==1.3.3
+-e git+https://github.com/uhrovat/yolo-openai-detector.git@5034f7689fe5b327035cfed945ba55fe71ccb22b#egg=cpu_yolo_openai_detect
 cuda-bindings==13.3.1
 cuda-pathfinder==1.5.5
 cuda-toolkit==13.0.2
