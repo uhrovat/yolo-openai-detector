@@ -75,6 +75,28 @@ class ChatCompletionResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Streaming (chat.completion.chunk)
+# ---------------------------------------------------------------------------
+class ChoiceDelta(BaseModel):
+    role: str | None = None
+    content: str | None = None
+
+
+class StreamChoice(BaseModel):
+    index: int = 0
+    delta: ChoiceDelta
+    finish_reason: str | None = None
+
+
+class ChatCompletionChunk(BaseModel):
+    id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:24]}")
+    object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: list[StreamChoice]
+
+
+# ---------------------------------------------------------------------------
 # OpenAI models list
 # ---------------------------------------------------------------------------
 class ModelObject(BaseModel):
