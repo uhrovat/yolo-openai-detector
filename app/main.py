@@ -9,6 +9,7 @@ Routes:
 import asyncio
 import base64
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -45,12 +46,20 @@ def get_semaphore() -> asyncio.Semaphore:
     return _semaphore
 
 
+_log = logging.getLogger(__name__)
+
+
 # ---------------------------------------------------------------------------
-# App lifecycle: load the ONNX session once at startup
+# App lifecycle: warm the ONNX session at startup if the model is present.
+# If the model file is absent (e.g. CI without export), the app still starts
+# and serves /health and error responses; inference requests will return 500.
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_session()  # warm the singleton before accepting requests
+    try:
+        get_session()
+    except Exception as exc:
+        _log.warning("Model not loaded at startup (%s). Inference will return 500.", exc)
     yield
 
 
