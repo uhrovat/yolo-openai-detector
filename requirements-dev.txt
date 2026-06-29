@@ -1,0 +1,8 @@
+# Dev/export tooling only. ultralytics + torch are OFFLINE-ONLY (export, tests).
+# Never add these to runtime (requirements.txt). See AGENTS.md §5.
+-r requirements.txt
+ultralytics>=8.3
+pytest>=8.2,<9.0
+httpx>=0.27,<1.0
+openai>=1.30
+ruff>=0.5
