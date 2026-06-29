@@ -17,16 +17,24 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install lint/test tooling
-        # Minimal tooling so CI is green on the governance scaffold.
-        # Once WO-01 adds runtime code, expand this to install the project
-        # (pip install -e ".[dev]") and run the full suite.
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install project + CI tooling
+        # Installs runtime deps (onnxruntime, pillow, numpy, fastapi, …) plus
+        # test/lint tools (pytest, httpx, openai, ruff) — no torch/ultralytics.
+        # Detection tests skip automatically when models/yolo11n.onnx is absent.
         run: |
           python -m pip install --upgrade pip
-          pip install ruff pytest
+          pip install -e ".[ci]"
 
       - name: Lint
-        run: ruff check . || true  # advisory until code lands in WO-01
+        run: ruff check .
 
       - name: Tests
         run: pytest -q

@@ -18,7 +18,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Dev/export tooling. ultralytics + torch live HERE ONLY (offline export, tests).
+# CI/test tooling — no torch/ultralytics. Used by GitHub Actions.
+ci = [
+    "pytest>=8.2,<9.0",
+    "httpx>=0.27,<1.0",
+    "openai>=1.30",
+    "ruff>=0.5",
+]
+# Full dev tooling including the offline export stack (torch + ultralytics).
+# Run locally only; not used in CI because the torch wheel is ~400 MB.
 dev = [
     "ultralytics>=8.3",
     "pytest>=8.2,<9.0",
