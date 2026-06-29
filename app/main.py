@@ -15,18 +15,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.auth import verify_bearer
 from app.detection import DetectionResult, detect, get_executor, get_session
 from app.errors import openai_error, openai_error_response
 from app.schemas import (
     AssistantMessage,
+    ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
     Choice,
+    ChoiceDelta,
     ModelList,
     ModelObject,
+    StreamChoice,
 )
 
 ADVERTISED_MODEL = "yolo11n"
@@ -226,17 +229,11 @@ async def chat_completions(request: Request):
             code="model_not_found",
         )
 
-    # Streaming not yet supported (WO-03)
-    if req.stream:
-        raise openai_error(
-            status_code=400,
-            message="Streaming is not yet supported by this service.",
-            code="streaming_not_supported",
-        )
-
     image_bytes = _extract_image_bytes(req)
 
     # Run inference off the event loop under the bounded concurrency semaphore.
+    # This happens before branching on stream so that inference errors always
+    # return a JSON error response, even for streaming requests.
     loop = asyncio.get_event_loop()
     try:
         async with get_semaphore():
@@ -251,8 +248,36 @@ async def chat_completions(request: Request):
         ) from exc
 
     content = _serialize_result(result)
+
+    if req.stream:
+        return _streaming_response(content, ADVERTISED_MODEL)
+
     response = ChatCompletionResponse(
         model=ADVERTISED_MODEL,
         choices=[Choice(message=AssistantMessage(content=content))],
     )
     return response.model_dump()
+
+
+def _streaming_response(content: str, model: str) -> StreamingResponse:
+    """
+    Emit one chat.completion.chunk carrying the full detection JSON, a stop
+    chunk, then data: [DONE]. Decision D2 in AGENTS.md.
+    """
+    chunk = ChatCompletionChunk(
+        model=model,
+        choices=[StreamChoice(delta=ChoiceDelta(role="assistant", content=content))],
+    )
+    stop_chunk = ChatCompletionChunk(
+        id=chunk.id,
+        created=chunk.created,
+        model=model,
+        choices=[StreamChoice(delta=ChoiceDelta(), finish_reason="stop")],
+    )
+
+    async def event_stream():
+        yield f"data: {chunk.model_dump_json()}\n\n"
+        yield f"data: {stop_chunk.model_dump_json()}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
